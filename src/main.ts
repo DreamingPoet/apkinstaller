@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 let greetInputEl: HTMLInputElement | null;
 let greetMsgEl: HTMLElement | null;
@@ -25,3 +27,14 @@ window.addEventListener("DOMContentLoaded", () => {
     greet();
   });
 });
+
+// 监听 拖拽
+await getCurrentWebview().onDragDropEvent((event) => {
+  if (event.payload.type === 'over') {
+    // console.log('User hovering', event.payload.position);
+  } else if (event.payload.type === 'drop') {
+    console.log('User dropped', event.payload.paths);
+  } else {
+    console.log('File drop cancelled');
+  }
+ });
