@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 
 let appNameEl: HTMLElement | null;
 let installResultEl: HTMLElement | null;
+let appPackageNameEl: HTMLElement | null;
+let appHasObbEl: HTMLElement | null;
 let installFilePath: string = "";
 
 // async function greet() {
@@ -21,10 +22,22 @@ let installFilePath: string = "";
 
 async function dropFile(filePath: string) {
 
-  if (appNameEl) {
-    appNameEl.textContent = await invoke("drop_file", {
+  if (appNameEl && appPackageNameEl && appHasObbEl) {
+    const result: string = await invoke("drop_file", {
       path: filePath
     })
+
+    // 将字符串格式化为有效的 JSON 格式
+    const jsonString = result.replace(/(\w+):/g, '"$1":') // 将键名加上双引号
+      .replace(/'/g, '"'); // 将单引号替换为双引号
+    // 解析为对象
+    const parsedObject = JSON.parse(`{${jsonString}}`);
+
+    console.log('parsedObject', parsedObject)
+
+    appNameEl.textContent = `名称: ${parsedObject.name}`;
+    appPackageNameEl.textContent = `包名: ${parsedObject.package_name}`;
+    appHasObbEl.textContent = parsedObject.has_obb == "true" ? "存在obb文件安装时间较长" : "";
     installFilePath = filePath;
   }
 }
@@ -44,6 +57,11 @@ async function installAPK() {
 window.addEventListener("DOMContentLoaded", () => {
   appNameEl = document.querySelector("#app-name");
   installResultEl = document.querySelector("#install-result");
+  appPackageNameEl = document.querySelector("#app-package-name");
+  appHasObbEl = document.querySelector("#app-has-obb");
+
+
+
   document.querySelector("#install-form")?.addEventListener("click", () => {
     installAPK();
   });

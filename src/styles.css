@@ -46,7 +46,13 @@ html {
   border-radius: 10px;
 }
 
-
+.app-info{
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  margin-top: 15px;
+  /* text-align: left; */
+}
 
 .logo {
   height: 6em;
