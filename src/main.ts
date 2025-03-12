@@ -68,7 +68,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // 监听 拖拽
-await getCurrentWebview().onDragDropEvent((event) => {
+getCurrentWebview().onDragDropEvent((event) => {
   if (event.payload.type === 'over') {
     // console.log('User hovering', event.payload.position);
   } else if (event.payload.type === 'drop') {

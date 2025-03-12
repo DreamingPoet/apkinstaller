@@ -5,14 +5,14 @@ use std::path::Path;
 use tauri::{AppHandle, Manager};
 
 #[tauri::command]
-fn drop_file(path: &str) -> String {
+fn drop_file(path: String) -> String {
     if path.ends_with(".apk") {
         // let package_name = match get_apk_package_name(path) {
         //     Ok(name) => name,
         //     Err(e) => return format!("获取包名失败: {}", e),
         // };
 
-        let has_obb = check_has_obb(path);
+        let has_obb = check_has_obb(&path);
         let package_name = "".to_string();
 
         // install(path)
@@ -27,9 +27,9 @@ fn drop_file(path: &str) -> String {
 }
 
 #[tauri::command]
-fn install(handle: AppHandle, path: &str) -> String {
+fn install(handle: AppHandle, path: String) -> String {
     // 1. First get package name from APK
-    let package_name = match get_apk_package_name(path) {
+    let package_name = match get_apk_package_name(&path) {
         Ok(name) => name,
         Err(e) => return format!("获取包名失败: {}", e),
     };
@@ -41,7 +41,7 @@ fn install(handle: AppHandle, path: &str) -> String {
     let adb_path_str = adb_path.to_str().unwrap();
 
     let install_result = std::process::Command::new(adb_path_str)
-        .args(["install", "-r", path])
+        .args(["install", "-r", &path])
         .output();
 
     match install_result {
@@ -51,7 +51,7 @@ fn install(handle: AppHandle, path: &str) -> String {
             }
 
             // 安装OBB文件
-            let obb_result = install_obb(&package_name, path, adb_path_str);
+            let obb_result = install_obb(&package_name, &path, adb_path_str);
             println!("obb_result: {}", obb_result);
 
             // 3. Grant permissions
