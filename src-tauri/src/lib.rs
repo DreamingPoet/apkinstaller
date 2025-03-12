@@ -13,11 +13,14 @@ fn drop_file(path: &str) -> String {
         // };
 
         let has_obb = check_has_obb(path);
-        let package_name="".to_string();
+        let package_name = "".to_string();
 
         // install(path)
         let name: &str = path.split("\\").last().unwrap();
-        format!("name:'{}',package_name:'{}',has_obb:'{}'", name, package_name, has_obb)
+        format!(
+            "name:'{}',package_name:'{}',has_obb:'{}'",
+            name, package_name, has_obb
+        )
     } else {
         format!("仅支持 .apk 文件")
     }
@@ -67,10 +70,7 @@ fn install(handle: AppHandle, path: &str) -> String {
                 }
             }
 
-            format!(
-                "Successfully installed and granted permissions for {}",
-                package_name
-            )
+            format!("已成功安装并授予权限: {}", package_name)
         }
         Err(e) => format!("安装失败: {}", e),
     }
