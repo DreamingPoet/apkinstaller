@@ -22,7 +22,7 @@ let installFilePath: string = "";
 
 async function dropFile(filePath: string) {
 
-  if (appNameEl && appPackageNameEl && appHasObbEl) {
+  if (appNameEl && appPackageNameEl && appHasObbEl && installResultEl) {
     const result: string = await invoke("drop_file", {
       path: filePath
     })
@@ -32,24 +32,24 @@ async function dropFile(filePath: string) {
       .replace(/'/g, '"'); // 将单引号替换为双引号
     // 解析为对象
     const parsedObject = JSON.parse(`{${jsonString}}`);
-
     console.log('parsedObject', parsedObject)
-
     appNameEl.textContent = `名称: ${parsedObject.name}`;
-    appPackageNameEl.textContent = `包名: ${parsedObject.package_name}`;
+    // appPackageNameEl.textContent = `包名: ${parsedObject.package_name}`;
     appHasObbEl.textContent = parsedObject.has_obb == "true" ? "存在obb文件安装时间较长" : "";
     installFilePath = filePath;
+
+    installResultEl.textContent = ''
   }
 }
 
 
 async function installAPK() {
   if (installResultEl) {
+    installResultEl.textContent = '安装中...'
+
     installResultEl.textContent = await invoke("install", {
       path: installFilePath
     })
-
-    console.log('installResult')
   }
 }
 
