@@ -1,12 +1,22 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-
+import { listen } from '@tauri-apps/api/event';
 
 let appNameEl: HTMLElement | null;
 let installResultEl: HTMLElement | null;
-let appPackageNameEl: HTMLElement | null;
 let appHasObbEl: HTMLElement | null;
 let installFilePath: string = "";
+let progressContainer: HTMLElement | null;
+let progressText: HTMLElement | null;
+let progressFill: HTMLElement | null;
+
+// 定义安装步骤和对应的进度百分比
+const installSteps = {
+  "开始安装...": 0,
+  "正在安装 APK...": 25,
+  "正在安装 OBB 文件...": 50,
+  "正在设置应用权限...": 75
+};
 
 // async function greet() {
 //   if (greetMsgEl && greetInputEl) {
@@ -18,11 +28,8 @@ let installFilePath: string = "";
 //   }
 // }
 
-
-
 async function dropFile(filePath: string) {
-
-  if (appNameEl && appPackageNameEl && appHasObbEl && installResultEl) {
+  if (appNameEl  && appHasObbEl && installResultEl) {
     const result: string = await invoke("drop_file", {
       path: filePath
     })
@@ -42,29 +49,76 @@ async function dropFile(filePath: string) {
   }
 }
 
+async function installAPK(startApp: boolean = false) {
+  if (installResultEl && progressContainer && progressText && progressFill) {
+    // 显示进度条
+    progressContainer.style.display = 'block';
+    progressText.textContent = '准备安装...';
+    progressFill.style.width = '0%';
+    installResultEl.textContent = '';
 
-async function installAPK() {
-  if (installResultEl) {
-    installResultEl.textContent = '安装中...'
-
-    installResultEl.textContent = await invoke("install", {
-      path: installFilePath
-    })
+    try {
+      const result = await invoke("install_apk", {
+        path: installFilePath,
+        startApp: startApp
+      }) as string;
+      
+      // 安装完成，设置进度为100%
+      progressFill.style.width = '100%';
+      progressText.textContent = '安装完成';
+      
+      installResultEl.textContent = result;
+    } catch (error) {
+      // 确保error是字符串类型
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      installResultEl.textContent = `安装失败: ${errorMessage}`;
+      
+      // 安装失败，重置进度条
+      progressFill.style.width = '0%';
+      progressText.textContent = '安装失败';
+    } finally {
+      // 3秒后隐藏进度条
+      setTimeout(() => {
+        if (progressContainer) {
+          progressContainer.style.display = 'none';
+        }
+      }, 3000);
+    }
   }
 }
-
 
 window.addEventListener("DOMContentLoaded", () => {
   appNameEl = document.querySelector("#app-name");
   installResultEl = document.querySelector("#install-result");
-  appPackageNameEl = document.querySelector("#app-package-name");
   appHasObbEl = document.querySelector("#app-has-obb");
+  progressContainer = document.querySelector(".progress-container");
+  progressText = document.querySelector("#progress-text");
+  progressFill = document.querySelector(".progress-fill");
 
-
-
-  document.querySelector("#install-form")?.addEventListener("click", () => {
-    installAPK();
+  // 监听安装进度事件
+  listen('install_progress', (event: any) => {
+    if (progressText && progressFill) {
+      const message = event.payload;
+      progressText.textContent = message;
+      
+      // 根据消息更新进度条
+      if (installSteps.hasOwnProperty(message)) {
+        progressFill.style.width = `${installSteps[message as keyof typeof installSteps]}%`;
+      }
+    }
   });
+
+  document.querySelector("#installAppAndStart")?.addEventListener("click", () => {
+    installAPK(true);
+  });
+  document.querySelector("#installApp")?.addEventListener("click", () => {
+    installAPK(false);
+  });
+
+
+  // document.querySelector("#install-form")?.addEventListener("click", () => {
+  //   installAPK();
+  // });
 });
 
 // 监听 拖拽

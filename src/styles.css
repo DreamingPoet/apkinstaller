@@ -29,29 +29,43 @@ html {
   padding: 0;
   height: 100vh;
   width: 100vw;
+  overflow: hidden; /* 防止页面滚动 */
 }
 
 .container {
   padding: 15px;
-  height: calc(100vh - 30px); /* 减去padding的高度 */
+  height: calc(100vh - 0px); /* 减去padding的高度 */
+  box-sizing: border-box; /* 确保padding包含在高度内 */
 }
 
 .container_inner {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   text-align: center;
   height: 100%;
   border: 1px solid #7c7c7c;
   border-radius: 10px;
+  position: relative;
+  padding: 10px; /* 减小内边距 */
+  box-sizing: border-box; /* 确保padding包含在高度内 */
+  overflow: hidden; /* 防止内容溢出 */
 }
 
-.app-info{
+.drag-hint {
+ margin-top: 200px;
+  height: 24px; /* 减小高度 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.app-info {
   display: flex;
   flex-direction: column;
   padding: 5px;
-  margin-top: 15px;
-  /* text-align: left; */
+  margin-top: 10px; /* 减小上边距 */
+  min-height: 50px; /* 减小最小高度 */
 }
 
 .logo {
@@ -87,15 +101,20 @@ h1 {
 
 .button_container {
   display: flex;
-  height: 100%;
+  flex-direction: column;
   justify-content: center;
-  align-items:flex-end;
-  height: 100px;
+  align-items: center;
+  height: 90px; /* 减小高度 */
+  gap: 8px; /* 减小间距 */
+  margin-top: 15px; /* 减小上边距 */
+  position: relative;
+  z-index: 2;
 }
 
 
 input,
 button {
+  width: 130px;
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
@@ -149,4 +168,59 @@ button {
   button:active {
     background-color: #0f0f0f69;
   }
+}
+
+.progress-container {
+  margin: 10px auto 0 auto; /* 减小外边距 */
+  width: 90%;
+  position: absolute;
+  left: 5%;
+  bottom: 50px; /* 调整底部位置 */
+  z-index: 1;
+  display: none;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background-color: #4CAF50;
+  transition: width 0.5s ease;
+}
+
+#app-name{
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+#app-has-obb{
+  text-align: center;
+  color: red;
+  font-size: 14px;
+}
+
+#progress-text {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+#install-result {
+  position: absolute;
+  bottom: 15px; /* 调整底部位置 */
+  width: 100%;
+  margin-left: -10px;
+  min-height: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
 }

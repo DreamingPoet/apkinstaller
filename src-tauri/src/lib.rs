@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::path::Path;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[tauri::command]
 fn drop_file(path: String) -> String {
@@ -27,65 +27,118 @@ fn drop_file(path: String) -> String {
 }
 
 #[tauri::command]
-fn install(handle: AppHandle, path: String) -> String {
-    // 1. First get package name from APK
-    let package_name = match get_apk_package_name(&path) {
+async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String {
+    println!("install_apk()  开始安装");
+
+    // 发送开始安装通知
+    handle.emit("install_progress", "开始安装...").unwrap();
+
+    let resource_dir = handle.path().resource_dir().unwrap();
+    let adb_path = resource_dir.join("platform-tools/ADB/adb.exe");
+    // 将 PathBuf 转换为字符串并克隆以延长生命周期
+    let adb_path_str = adb_path.to_str().unwrap().to_string();
+
+    let path_clone = path.clone();
+    let path_clone2 = path.clone();
+    let adb_path_str_clone = adb_path_str.clone();
+    let handle_clone = handle.clone(); // 克隆 handle 以便在闭包中使用
+
+    // 同时执行 APK 安装和包名获取
+    let (install_result, package_name_result) = tokio::join!(
+        tokio::task::spawn_blocking(move || {
+            handle_clone // 使用克隆的 handle
+                .emit("install_progress", "正在安装 APK...")
+                .unwrap();
+            std::process::Command::new(&adb_path_str)
+                .args(["install", "-r", &path.clone()])
+                .output()
+        }),
+        get_apk_package_name(&path_clone)
+    );
+
+    // 获取包名结果
+    let package_name: String = match package_name_result {
         Ok(name) => name,
         Err(e) => return format!("获取包名失败: {}", e),
     };
     println!("package_name: {}", package_name);
 
-    // 2. Install the APK
-    let resource_dir = handle.path().resource_dir().unwrap();
-    let adb_path = resource_dir.join("platform-tools/ADB/adb.exe");
-    let adb_path_str = adb_path.to_str().unwrap();
+    // 获取安装结果
+    let output = match install_result {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => return format!("安装失败: {}", e),
+        Err(e) => return format!("安装任务执行失败: {}", e),
+    };
 
-    let install_result = std::process::Command::new(adb_path_str)
-        .args(["install", "-r", &path])
-        .output();
+    if !output.status.success() {
+        return format!("安装失败: {}", String::from_utf8_lossy(&output.stderr));
+    }
 
-    match install_result {
-        Ok(output) => {
-            if !output.status.success() {
-                return format!("安装失败: {}", String::from_utf8_lossy(&output.stderr));
-            }
+    // 安装OBB文件
+    handle
+        .emit("install_progress", "正在安装 OBB 文件...")
+        .unwrap();
+    let obb_result = install_obb(&package_name, &path_clone2, &adb_path_str_clone);
+    println!("obb_result: {}", obb_result);
 
-            // 安装OBB文件
-            let obb_result = install_obb(&package_name, &path, adb_path_str);
-            println!("obb_result: {}", obb_result);
+    // 设置读写权限
+    let permissions = [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+    ];
 
-            // 3. Grant permissions
-            let permissions = [
-                "android.permission.READ_EXTERNAL_STORAGE",
-                "android.permission.WRITE_EXTERNAL_STORAGE",
-            ];
+    // 设置权限
+    handle
+        .emit("install_progress", "正在设置应用权限...")
+        .unwrap();
+    for permission in permissions {
+        let grant_result = std::process::Command::new(&adb_path_str_clone)
+            .args(["shell", "pm", "grant", &package_name, permission])
+            .output();
 
-            for permission in permissions {
-                let grant_result = std::process::Command::new(adb_path_str)
-                    .args(["shell", "pm", "grant", &package_name, permission])
-                    .output();
+        if let Err(e) = grant_result {
+            return format!("Failed to grant permission {}: {}", permission, e);
+        }
+    }
 
-                if let Err(e) = grant_result {
-                    return format!("Failed to grant permission {}: {}", permission, e);
+    let mut start_app_result: String = String::default();
+    if start_app {
+        let start_result = std::process::Command::new(&adb_path_str_clone)
+            .args(["shell", "monkey", "-p", &package_name, "1"])
+            .output();
+
+        match start_result {
+            Ok(output) => {
+                if !output.status.success() {
+                    println!("启动应用失败: {}", String::from_utf8_lossy(&output.stderr));
+                    start_app_result = format!(
+                        "，应用启动失败: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                } else {
+                    println!("成功启动应用: {}", package_name);
+                    start_app_result = format!("，应用成功启动");
                 }
             }
-
-            format!("已成功安装并授予权限: {}", package_name)
+            Err(e) => println!("启动应用错误: {}", e),
         }
-        Err(e) => format!("安装失败: {}", e),
     }
+
+    format!("已成功安装并授予权限: {}{}", package_name, start_app_result)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![install, drop_file])
+        .invoke_handler(tauri::generate_handler![install_apk, drop_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
-fn get_apk_package_name(path: &str) -> Result<String, String> {
+async fn get_apk_package_name(path: &str) -> Result<String, String> {
     println!("获取 APK 文件路径: {}", path);
     // 尝试使用 abxml 库解析 APK 文件
     match abxml::apk::Apk::from_path(path) {

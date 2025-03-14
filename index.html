@@ -12,18 +12,26 @@
 <body>
   <main class="container">
     <div class="container_inner">
-      <text style="display: flex; justify-content: center; align-items: center;"> 拖拽apk文件到此处安装 </text>
+      <div class="drag-hint">拖拽apk文件到此处安装</div>
+      
       <div class="app-info">
-        <text id="app-name"></text>
-        <text id="app-package-name"></text>
-        <text id="app-has-obb" style="color: red;"></text>
-      </div>
-      <!-- <input type="file" id="file-input" /> -->
-      <!-- <input id="greet-input" placeholder="Enter a name..." /> -->
-      <div class="button_container" id="install-form">
-        <button type="button">安装</button>
+        <div id="app-name"></div>
+        <div id="app-has-obb" style="color: red;"></div>
       </div>
 
+      <div class="button_container" id="install-form">
+        <button id="installApp" type="button">安装</button>
+        <button id="installAppAndStart" type="button">安装并启动</button>
+      </div>
+
+      <!-- 添加进度显示区域 -->
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+        <div id="progress-text"></div>
+      </div>
+      
       <p id="install-result"></p>
     </div>
   </main>
