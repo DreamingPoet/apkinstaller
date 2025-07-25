@@ -50,7 +50,7 @@ async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String
                 .emit("install_progress", "正在安装 APK...")
                 .unwrap();
             std::process::Command::new(&adb_path_str)
-                .args(["install", "-r", &path.clone()])
+                .args(["install","-g","-r", &path.clone()])
                 .output()
         }),
         get_apk_package_name(&path_clone)
@@ -81,27 +81,27 @@ async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String
     let obb_result = install_obb(&package_name, &path_clone2, &adb_path_str_clone);
     println!("obb_result: {}", obb_result);
 
-    // 设置读写权限
-    let permissions = [
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.RECORD_AUDIO",
-    ];
+    // // 设置读写权限
+    // let permissions = [
+    //     "android.permission.READ_EXTERNAL_STORAGE",
+    //     "android.permission.WRITE_EXTERNAL_STORAGE",
+    //     "android.permission.MODIFY_AUDIO_SETTINGS",
+    //     "android.permission.RECORD_AUDIO",
+    // ];
 
-    // 设置权限
-    handle
-        .emit("install_progress", "正在设置应用权限...")
-        .unwrap();
-    for permission in permissions {
-        let grant_result = std::process::Command::new(&adb_path_str_clone)
-            .args(["shell", "pm", "grant", &package_name, permission])
-            .output();
+    // // 设置权限
+    // handle
+    //     .emit("install_progress", "正在设置应用权限...")
+    //     .unwrap();
+    // for permission in permissions {
+    //     let grant_result = std::process::Command::new(&adb_path_str_clone)
+    //         .args(["shell", "pm", "grant", &package_name, permission])
+    //         .output();
 
-        if let Err(e) = grant_result {
-            return format!("Failed to grant permission {}: {}", permission, e);
-        }
-    }
+    //     if let Err(e) = grant_result {
+    //         return format!("Failed to grant permission {}: {}", permission, e);
+    //     }
+    // }
 
     let mut start_app_result: String = String::default();
     if start_app {
