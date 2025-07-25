@@ -19,3 +19,6 @@ https://tauri.app/
     await invoke("greet", {
       path: greetInputEl.value,
     });
+
+#  rustc版本
+rustc 1.83.0 (90b35a623 2024-11-26)
