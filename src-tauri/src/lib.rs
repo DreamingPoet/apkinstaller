@@ -4,6 +4,34 @@ use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Emitter, Manager};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+use std::process::Command;
+
+#[tauri::command]
+fn get_devices(handle: AppHandle) -> String {
+    let resource_dir = handle.path().resource_dir().unwrap();
+    let adb_path = resource_dir.join("platform-tools/ADB/adb.exe");
+
+    let mut cmd = Command::new(adb_path);
+    cmd.args(["devices"]);
+    #[cfg(windows)]
+    {
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let get_devices_result = cmd.output();
+    match get_devices_result {
+        Ok(output) => {
+            if !output.status.success() {
+                return format!("获取设备失败: {}", String::from_utf8_lossy(&output.stderr));
+            } else {
+                return String::from_utf8_lossy(&output.stdout).to_string();
+            }
+        }
+        Err(e) => return format!("无法执行adb: {}", e),
+    }
+}
+
 #[tauri::command]
 fn drop_file(path: String) -> String {
     if path.ends_with(".apk") {
@@ -27,8 +55,13 @@ fn drop_file(path: String) -> String {
 }
 
 #[tauri::command]
-async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String {
-    println!("install_apk()  开始安装");
+async fn install_apk(
+    handle: AppHandle,
+    path: String,
+    start_app: bool,
+    device_id: String,
+) -> String {
+    println!("install_apk()  开始安装 {}, {}", &path, &device_id);
 
     // 发送开始安装通知
     handle.emit("install_progress", "开始安装...").unwrap();
@@ -41,17 +74,29 @@ async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String
     let path_clone = path.clone();
     let path_clone2 = path.clone();
     let adb_path_str_clone = adb_path_str.clone();
-    let handle_clone = handle.clone(); // 克隆 handle 以便在闭包中使用
-
-    // 同时执行 APK 安装和包名获取
+    let handle_clone = handle.clone();
+    // 拼接 adb 参数
+    let adb_install_args = vec![
+        "-s".to_string(),
+        device_id.clone(),
+        "install".to_string(),
+        "-g".to_string(),
+        "-r".to_string(),
+        path.clone(),
+    ];
+    // println!("adb_install_args {:?}", &adb_install_args);
     let (install_result, package_name_result) = tokio::join!(
         tokio::task::spawn_blocking(move || {
-            handle_clone // 使用克隆的 handle
+            handle_clone
                 .emit("install_progress", "正在安装 APK...")
                 .unwrap();
-            std::process::Command::new(&adb_path_str)
-                .args(["install","-g","-r", &path.clone()])
-                .output()
+            let mut cmd = Command::new(&adb_path_str);
+            cmd.args(&adb_install_args);
+            #[cfg(windows)]
+            {
+                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+            }
+            cmd.output()
         }),
         get_apk_package_name(&path_clone)
     );
@@ -71,14 +116,24 @@ async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String
     };
 
     if !output.status.success() {
-        return format!("安装失败: {}", String::from_utf8_lossy(&output.stderr));
+        println!(
+            "install output: {},{},{}",
+            output.status.to_string(),
+            String::from_utf8_lossy(&output.stderr),
+            String::from_utf8_lossy(&output.stdout)
+        );
+        return format!(
+            "安装失败: {}{}",
+            String::from_utf8_lossy(&output.stderr),
+            String::from_utf8_lossy(&output.stdout)
+        );
     }
 
     // 安装OBB文件
     handle
         .emit("install_progress", "正在安装 OBB 文件...")
         .unwrap();
-    let obb_result = install_obb(&package_name, &path_clone2, &adb_path_str_clone);
+    let obb_result = install_obb(&package_name, &path_clone2, &adb_path_str_clone, &device_id);
     println!("obb_result: {}", obb_result);
 
     // // 设置读写权限
@@ -105,9 +160,17 @@ async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String
 
     let mut start_app_result: String = String::default();
     if start_app {
-        let start_result = std::process::Command::new(&adb_path_str_clone)
-            .args(["shell", "monkey", "-p", &package_name, "1"])
-            .output();
+        let mut start_args = vec![];
+        start_args.push("-s");
+        start_args.push(&device_id);
+        start_args.extend(["shell", "monkey", "-p", &package_name, "1"]);
+        let mut cmd = Command::new(&adb_path_str_clone);
+        cmd.args(&start_args);
+        #[cfg(windows)]
+        {
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+        let start_result = cmd.output();
 
         match start_result {
             Ok(output) => {
@@ -133,7 +196,11 @@ async fn install_apk(handle: AppHandle, path: String, start_app: bool) -> String
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![install_apk, drop_file])
+        .invoke_handler(tauri::generate_handler![
+            install_apk,
+            drop_file,
+            get_devices
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -187,7 +254,7 @@ async fn get_apk_package_name(path: &str) -> Result<String, String> {
     }
 }
 
-fn install_obb(package_name: &str, apk_path: &str, adb_path: &str) -> String {
+fn install_obb(package_name: &str, apk_path: &str, adb_path: &str, device_id: &str) -> String {
     // 获取APK文件所在目录
     let apk_dir = Path::new(apk_path).parent().unwrap_or(Path::new(""));
 
@@ -209,14 +276,20 @@ fn install_obb(package_name: &str, apk_path: &str, adb_path: &str) -> String {
     }
 
     // 创建设备上的OBB目录
-    let create_dir_result = std::process::Command::new(adb_path)
-        .args([
-            "shell",
-            "mkdir",
-            "-p",
-            &format!("/sdcard/Android/obb/{}", package_name),
-        ])
-        .output();
+    let mut cmd = Command::new(adb_path);
+    cmd.args([
+        "-s",
+        device_id,
+        "shell",
+        "mkdir",
+        "-p",
+        &format!("/sdcard/Android/obb/{}", package_name),
+    ]);
+    #[cfg(windows)]
+    {
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let create_dir_result = cmd.output();
 
     if let Err(e) = create_dir_result {
         return format!("Failed to create OBB directory: {}", e);
@@ -228,13 +301,19 @@ fn install_obb(package_name: &str, apk_path: &str, adb_path: &str) -> String {
         let obb_file_name = obb_path.file_name().unwrap().to_string_lossy();
 
         // 使用adb push命令复制文件
-        let push_result = std::process::Command::new(adb_path)
-            .args([
-                "push",
-                obb_path.to_str().unwrap(),
-                &format!("/sdcard/Android/obb/{}/{}", package_name, obb_file_name),
-            ])
-            .output();
+        let mut cmd = Command::new(adb_path);
+        cmd.args([
+            "-s",
+            device_id,
+            "push",
+            obb_path.to_str().unwrap(),
+            &format!("/sdcard/Android/obb/{}/{}", package_name, obb_file_name),
+        ]);
+        #[cfg(windows)]
+        {
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+        let push_result = cmd.output();
 
         match push_result {
             Ok(output) => {

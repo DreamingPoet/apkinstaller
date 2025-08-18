@@ -12,16 +12,22 @@
 <body>
   <main class="container">
     <div class="container_inner">
+
+      <div class="container_device">
+        <div id="device-info"></div>
+      </div>
+
+
       <div class="drag-hint">拖拽apk文件到此处安装</div>
-      
+
       <div class="app-info">
         <div id="app-name"></div>
-        <div id="app-has-obb" style="color: red;"></div>
+        <div id="app-has-obb"></div>
       </div>
 
       <div class="button_container" id="install-form">
-        <button id="installApp" type="button">安装</button>
-        <button id="installAppAndStart" type="button">安装并启动</button>
+        <button id="install-app" type="button">安装</button>
+        <button id="install-app-start" type="button">安装并启动</button>
       </div>
 
       <!-- 添加进度显示区域 -->
@@ -31,8 +37,19 @@
         </div>
         <div id="progress-text"></div>
       </div>
-      
+
       <p id="install-result"></p>
+      <div id="device-modal" class="device-modal">
+        <div class="device-modal-content">
+          <div class="device-modal-title">请选择要安装的设备</div>
+          <div id="device-modal-list" class="device-modal-list"></div>
+          <div class="device-modal-actions">
+            <button id="device-modal-install">安装</button>
+            <button id="device-modal-install-start">安装并启动</button>
+            <button id="device-modal-cancel">取消</button>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </body>
