@@ -37,6 +37,7 @@
 
       <div class="button_container" >
         <button id="install-pak-file" type="button">安装pak</button>
+        <button id="delete-pak-files" type="button">清理pak</button>
       </div>
 
       <!-- 添加进度显示区域 -->
@@ -56,6 +57,21 @@
             <button id="device-modal-install">安装</button>
             <button id="device-modal-install-start">安装并启动</button>
             <button id="device-modal-cancel">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 删除确认对话框 -->
+      <div id="delete-confirm-modal" class="device-modal">
+        <div class="device-modal-content">
+          <div class="device-modal-title">确认删除</div>
+          <div class="delete-confirm-message">
+            确定要删除设备上指定路径下的所有 pak 文件吗？<br>
+            此操作不可恢复！
+          </div>
+          <div class="device-modal-actions">
+            <button id="delete-confirm-yes">确定</button>
+            <button id="delete-confirm-no">取消</button>
           </div>
         </div>
       </div>

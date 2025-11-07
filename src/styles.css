@@ -120,7 +120,7 @@ h1 {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 90px;
+  height: 70px;
   /* 减小高度 */
   gap: 8px;
   /* 减小间距 */
@@ -332,9 +332,16 @@ button {
 }
 
 .device-modal-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
   margin-bottom: 16px;
+}
+
+.delete-confirm-message{
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+  text-align: center;
 }
 
 .device-modal-list {

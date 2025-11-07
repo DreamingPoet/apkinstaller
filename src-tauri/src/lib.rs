@@ -247,6 +247,63 @@ fn install_pak_file(
     }
 }
 
+#[tauri::command]
+fn delete_pak_files(
+    handle: AppHandle,
+    target_path: String,
+    device_id: String,
+) -> String {
+    println!("delete_pak_files() 开始删除 pak 文件: {}", &target_path);
+
+    let resource_dir = handle.path().resource_dir().unwrap();
+    let adb_path = resource_dir.join("platform-tools/ADB/adb.exe");
+
+    // 确保目标路径以 /sdcard/ 开头（如果没有的话）
+    let full_target_path = if target_path.starts_with("/") {
+        target_path.clone()
+    } else if target_path.starts_with("sdcard/") || target_path.starts_with("sdcard\\") {
+        format!("/{}", target_path.replace("\\", "/"))
+    } else {
+        format!("/sdcard/{}", target_path.replace("\\", "/"))
+    };
+
+    // 构建 adb shell rm 命令参数，删除指定路径下所有的 .pak 文件
+    let mut cmd = Command::new(&adb_path);
+    let rm_command = format!("rm -f {}/*.pak", full_target_path);
+    cmd.args(["-s", &device_id, "shell", &rm_command]);
+    
+    #[cfg(windows)]
+    {
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    let delete_result = cmd.output();
+
+    match delete_result {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                println!("pak 文件删除成功: {}", stdout);
+                format!("已删除路径 {} 下的所有 pak 文件", full_target_path)
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                println!("pak 文件删除失败: {}", stderr);
+                // 即使返回错误，也可能是因为没有文件可删除，这也算成功
+                if stderr.contains("No such file") || stderr.is_empty() {
+                    format!("已删除路径 {} 下的所有 pak 文件（可能不存在文件）", full_target_path)
+                } else {
+                    format!("删除失败: {}", stderr)
+                }
+            }
+        }
+        Err(e) => {
+            let error_msg = format!("无法执行 adb shell rm: {}", e);
+            println!("{}", error_msg);
+            error_msg
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -255,7 +312,8 @@ pub fn run() {
             install_apk,
             drop_file,
             get_devices,
-            install_pak_file
+            install_pak_file,
+            delete_pak_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -23,6 +23,10 @@ let pakFileNameEl: HTMLElement | null;
 let pakFileInstallPathEl: HTMLInputElement | null;
 let installPakFileBtn: HTMLElement | null;
 let pakFilePath: string = "";
+let deletePakFilesBtn: HTMLElement | null;
+let deleteConfirmModal: HTMLElement | null;
+let deleteConfirmYesBtn: HTMLElement | null;
+let deleteConfirmNoBtn: HTMLElement | null;
 
 // 定义安装步骤和对应的进度百分比
 const installSteps = {
@@ -190,6 +194,18 @@ function hideDeviceModal() {
   if (deviceModal) deviceModal.style.display = 'none';
 }
 
+function showDeleteConfirmModal() {
+  if (deleteConfirmModal) {
+    deleteConfirmModal.style.display = 'flex';
+  }
+}
+
+function hideDeleteConfirmModal() {
+  if (deleteConfirmModal) {
+    deleteConfirmModal.style.display = 'none';
+  }
+}
+
 async function installAPK(startApp: boolean = false) {
   if (installResultEl && progressContainer && progressText && progressFill) {
     // 检查设备数量
@@ -276,6 +292,47 @@ async function installPakFile() {
   }
 }
 
+async function deletePakFiles() {
+  if (!pakFileInstallPathEl || !installResultEl || !progressContainer || !progressText || !progressFill) return;
+  
+  const installPath = pakFileInstallPathEl.value.trim();
+  if (!installPath) {
+    installResultEl.textContent = '请输入 pak 文件路径';
+    return;
+  }
+
+  // 显示进度条
+  progressContainer.style.display = 'block';
+  progressText.textContent = '正在删除 pak 文件...';
+  progressFill.style.width = '50%';
+  installResultEl.textContent = '';
+
+  try {
+    const deviceId = deviceList.length > 0 ? deviceList[0].split('\t')[0] : undefined;
+    const result = await invoke("delete_pak_files", {
+      targetPath: installPath,
+      deviceId: deviceId
+    }) as string;
+
+    // 删除完成，设置进度为100%
+    progressFill.style.width = '100%';
+    progressText.textContent = 'pak 文件删除完成';
+    installResultEl.textContent = result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    installResultEl.textContent = `删除失败: ${errorMessage}`;
+    progressFill.style.width = '0%';
+    progressText.textContent = '删除失败';
+  } finally {
+    // 3秒后隐藏进度条
+    setTimeout(() => {
+      if (progressContainer) {
+        progressContainer.style.display = 'none';
+      }
+    }, 3000);
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   appNameEl = document.querySelector("#app-name");
   installResultEl = document.querySelector("#install-result");
@@ -294,6 +351,10 @@ window.addEventListener("DOMContentLoaded", () => {
   pakFileNameEl = document.getElementById('pak-file-name');
   pakFileInstallPathEl = document.getElementById('pak-file-install-path') as HTMLInputElement;
   installPakFileBtn = document.getElementById('install-pak-file');
+  deletePakFilesBtn = document.getElementById('delete-pak-files');
+  deleteConfirmModal = document.getElementById('delete-confirm-modal');
+  deleteConfirmYesBtn = document.getElementById('delete-confirm-yes');
+  deleteConfirmNoBtn = document.getElementById('delete-confirm-no');
 
   //  已连接的设备
   pollDevices();
@@ -329,6 +390,23 @@ window.addEventListener("DOMContentLoaded", () => {
   // pak 文件安装按钮点击事件
   installPakFileBtn?.addEventListener("click", () => {
     installPakFile();
+  });
+
+  // pak 文件删除按钮点击事件
+  deletePakFilesBtn?.addEventListener("click", () => {
+    showDeleteConfirmModal();
+  });
+
+  // 删除确认对话框按钮事件
+  deleteConfirmYesBtn?.addEventListener('click', () => {
+    hideDeleteConfirmModal();
+    deletePakFiles();
+  });
+
+  deleteConfirmNoBtn?.addEventListener('click', hideDeleteConfirmModal);
+
+  deleteConfirmModal?.addEventListener('click', (e) => {
+    if (e.target === deleteConfirmModal) hideDeleteConfirmModal();
   });
 
   // 设备弹窗按钮事件
