@@ -192,6 +192,61 @@ async fn install_apk(
     format!("已成功安装并授予权限: {}{}", package_name, start_app_result)
 }
 
+#[tauri::command]
+fn install_pak_file(
+    handle: AppHandle,
+    pak_path: String,
+    target_path: String,
+    device_id: String,
+) -> String {
+    println!("install_pak_file() 开始推送 pak 文件: {} 到 {}", &pak_path, &target_path);
+
+    let resource_dir = handle.path().resource_dir().unwrap();
+    let adb_path = resource_dir.join("platform-tools/ADB/adb.exe");
+
+    // 构建 adb push 命令参数
+    let mut cmd = Command::new(&adb_path);
+    let mut args = vec!["-s", &device_id, "push", &pak_path];
+    
+    // 确保目标路径以 /sdcard/ 开头（如果没有的话）
+    let full_target_path = if target_path.starts_with("/") {
+        target_path.clone()
+    } else if target_path.starts_with("sdcard/") || target_path.starts_with("sdcard\\") {
+        format!("/{}", target_path.replace("\\", "/"))
+    } else {
+        format!("/sdcard/{}", target_path.replace("\\", "/"))
+    };
+    
+    args.push(&full_target_path);
+    cmd.args(&args);
+    
+    #[cfg(windows)]
+    {
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    let push_result = cmd.output();
+
+    match push_result {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                println!("pak 文件推送成功: {}", stdout);
+                format!("pak 文件推送成功到: {}", full_target_path)
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                println!("pak 文件推送失败: {}", stderr);
+                format!("推送失败: {}", stderr)
+            }
+        }
+        Err(e) => {
+            let error_msg = format!("无法执行 adb push: {}", e);
+            println!("{}", error_msg);
+            error_msg
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -199,7 +254,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             install_apk,
             drop_file,
-            get_devices
+            get_devices,
+            install_pak_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

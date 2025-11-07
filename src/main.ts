@@ -19,6 +19,10 @@ let deviceModalList: HTMLElement | null;
 let deviceModalInstallBtn: HTMLElement | null;
 let deviceModalInstallAndStartBtn: HTMLElement | null;
 let deviceModalCancelBtn: HTMLElement | null;
+let pakFileNameEl: HTMLElement | null;
+let pakFileInstallPathEl: HTMLInputElement | null;
+let installPakFileBtn: HTMLElement | null;
+let pakFilePath: string = "";
 
 // 定义安装步骤和对应的进度百分比
 const installSteps = {
@@ -111,24 +115,49 @@ function processDeviceInfo(input: string): string[] {
 
 
 async function dropFile(filePath: string) {
-  if (appNameEl && appHasObbEl && installResultEl) {
-    const result: string = await invoke("drop_file", {
-      path: filePath
-    })
+  // 检查文件扩展名
+  const fileExtension = filePath.toLowerCase().substring(filePath.lastIndexOf('.'));
+  
+  if (fileExtension === '.pak') {
+    // 处理 .pak 文件
+    if (pakFileNameEl && installResultEl) {
+      const fileName = filePath.substring(filePath.lastIndexOf('\\') + 1);
+      pakFileNameEl.textContent = `pak文件名: ${fileName}`;
+      pakFilePath = filePath;
+      installPakFileBtn?.removeAttribute('disabled');
+      installResultEl.textContent = '';
+      
+      // 清空 APK 相关信息
+      if (appNameEl) appNameEl.textContent = '';
+      if (appHasObbEl) appHasObbEl.textContent = '';
+      installAppBtn?.setAttribute('disabled', 'true');
+      installAppAndStartBtn?.setAttribute('disabled', 'true');
+    }
+  } else if (fileExtension === '.apk') {
+    // 处理 .apk 文件（保持原逻辑）
+    if (appNameEl && appHasObbEl && installResultEl) {
+      const result: string = await invoke("drop_file", {
+        path: filePath
+      })
 
-    // 将字符串格式化为有效的 JSON 格式
-    const jsonString = result.replace(/(\w+):/g, '"$1":') // 将键名加上双引号
-      .replace(/'/g, '"'); // 将单引号替换为双引号
-    // 解析为对象
-    const parsedObject = JSON.parse(`{${jsonString}}`);
-    console.log('parsedObject', parsedObject)
-    appNameEl.textContent = `名称: ${parsedObject.name}`;
-    installAppBtn?.removeAttribute('disabled');
-    installAppAndStartBtn?.removeAttribute('disabled');
-    // appPackageNameEl.textContent = `包名: ${parsedObject.package_name}`;
-    appHasObbEl.textContent = parsedObject.has_obb == "true" ? "存在obb文件安装时间较长" : "";
-    installFilePath = filePath;
-    installResultEl.textContent = ''
+      // 将字符串格式化为有效的 JSON 格式
+      const jsonString = result.replace(/(\w+):/g, '"$1":') // 将键名加上双引号
+        .replace(/'/g, '"'); // 将单引号替换为双引号
+      // 解析为对象
+      const parsedObject = JSON.parse(`{${jsonString}}`);
+      console.log('parsedObject', parsedObject)
+      appNameEl.textContent = `名称: ${parsedObject.name}`;
+      installAppBtn?.removeAttribute('disabled');
+      installAppAndStartBtn?.removeAttribute('disabled');
+      // appPackageNameEl.textContent = `包名: ${parsedObject.package_name}`;
+      appHasObbEl.textContent = parsedObject.has_obb == "true" ? "存在obb文件安装时间较长" : "";
+      installFilePath = filePath;
+      installResultEl.textContent = '';
+      
+      // 清空 pak 文件相关信息
+      if (pakFileNameEl) pakFileNameEl.textContent = '';
+      installPakFileBtn?.setAttribute('disabled', 'true');
+    }
   }
 }
 
@@ -205,6 +234,48 @@ async function installAPK(startApp: boolean = false) {
   }
 }
 
+async function installPakFile() {
+  if (!pakFileInstallPathEl || !installResultEl || !progressContainer || !progressText || !progressFill) return;
+  
+  const installPath = pakFileInstallPathEl.value.trim();
+  if (!installPath) {
+    installResultEl.textContent = '请输入 pak 文件安装路径';
+    return;
+  }
+
+  // 显示进度条
+  progressContainer.style.display = 'block';
+  progressText.textContent = '正在推送 pak 文件...';
+  progressFill.style.width = '50%';
+  installResultEl.textContent = '';
+
+  try {
+    const deviceId = deviceList.length > 0 ? deviceList[0].split('\t')[0] : undefined;
+    const result = await invoke("install_pak_file", {
+      pakPath: pakFilePath,
+      targetPath: installPath,
+      deviceId: deviceId
+    }) as string;
+
+    // 安装完成，设置进度为100%
+    progressFill.style.width = '100%';
+    progressText.textContent = 'pak 文件推送完成';
+    installResultEl.textContent = result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    installResultEl.textContent = `推送失败: ${errorMessage}`;
+    progressFill.style.width = '0%';
+    progressText.textContent = '推送失败';
+  } finally {
+    // 3秒后隐藏进度条
+    setTimeout(() => {
+      if (progressContainer) {
+        progressContainer.style.display = 'none';
+      }
+    }, 3000);
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   appNameEl = document.querySelector("#app-name");
   installResultEl = document.querySelector("#install-result");
@@ -220,6 +291,9 @@ window.addEventListener("DOMContentLoaded", () => {
   deviceModalInstallBtn = document.getElementById('device-modal-install');
   deviceModalInstallAndStartBtn = document.getElementById("device-modal-install-start");
   deviceModalCancelBtn = document.getElementById('device-modal-cancel');
+  pakFileNameEl = document.getElementById('pak-file-name');
+  pakFileInstallPathEl = document.getElementById('pak-file-install-path') as HTMLInputElement;
+  installPakFileBtn = document.getElementById('install-pak-file');
 
   //  已连接的设备
   pollDevices();
@@ -229,6 +303,7 @@ window.addEventListener("DOMContentLoaded", () => {
   //  未拖入安装包的时候，按钮禁止点击
   installAppBtn?.setAttribute('disabled', 'true');
   installAppAndStartBtn?.setAttribute('disabled', 'true');
+  installPakFileBtn?.setAttribute('disabled', 'true');
 
 
   // 监听安装进度事件
@@ -249,6 +324,11 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   installAppAndStartBtn?.addEventListener("click", () => {
     installAPK(true);
+  });
+
+  // pak 文件安装按钮点击事件
+  installPakFileBtn?.addEventListener("click", () => {
+    installPakFile();
   });
 
   // 设备弹窗按钮事件

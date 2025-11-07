@@ -17,8 +17,7 @@
         <div id="device-info"></div>
       </div>
 
-
-      <div class="drag-hint">拖拽apk文件到此处安装</div>
+      <div class="drag-hint">拖拽 apk 或 pak 文件到此处安装</div>
 
       <div class="app-info">
         <div id="app-name"></div>
@@ -28,6 +27,16 @@
       <div class="button_container" id="install-form">
         <button id="install-app" type="button">安装</button>
         <button id="install-app-start" type="button">安装并启动</button>
+      </div>
+      <br>
+      <div class="app-info">
+        <div id="pak-file-install-path-label">pak文件安装路径：</div>
+        <input type="text" id="pak-file-install-path" placeholder="请输入 pak 文件安装路径" value="sdcard/Android/data/com.nasu.moonbacktest/files/UnrealGame/MoonbackEchoes/MoonbackEchoes/DLC"/>
+        <div id="pak-file-name"></div>
+      </div>
+
+      <div class="button_container" >
+        <button id="install-pak-file" type="button">安装pak</button>
       </div>
 
       <!-- 添加进度显示区域 -->

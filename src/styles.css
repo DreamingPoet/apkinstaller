@@ -66,7 +66,7 @@ html {
 
 
 .drag-hint {
-  margin-top: 200px;
+  margin-top: 100px;
   height: 24px;
   /* 减小高度 */
   display: flex;
@@ -80,7 +80,7 @@ html {
   padding: 5px;
   margin-top: 10px;
   /* 减小上边距 */
-  min-height: 50px;
+  min-height: 30px;
   /* 减小最小高度 */
 }
 
@@ -231,6 +231,25 @@ button {
 #app-has-obb {
   text-align: center;
   color: rgb(243, 169, 9);
+  font-size: 14px;
+}
+
+#pak-file-name {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+#pak-file-install-path{
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  width: 95%;
+}
+
+#pak-file-install-path-label{
+  text-align: center;
+  color: #666;
   font-size: 14px;
 }
 
